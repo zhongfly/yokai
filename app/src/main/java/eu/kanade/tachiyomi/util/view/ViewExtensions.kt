@@ -347,7 +347,22 @@ fun MaterialButton.resetStrokeColor() {
 @SuppressLint("RestrictedApi")
 fun NavigationBarView.getItemView(@IdRes id: Int): NavigationBarItemView? {
     val order = (menu as MenuBuilder).findItemIndex(id)
-    return (getChildAt(0) as NavigationBarMenuView).getChildAt(order) as? NavigationBarItemView
+    if (order < 0) return null
+    val menuView = findNavigationBarMenuView() ?: return null
+    if (order >= menuView.childCount) return null
+    return menuView.getChildAt(order) as? NavigationBarItemView
+}
+
+@SuppressLint("RestrictedApi")
+private fun View.findNavigationBarMenuView(): NavigationBarMenuView? {
+    if (this is NavigationBarMenuView) return this
+    if (this !is ViewGroup) return null
+
+    for (i in 0 until childCount) {
+        val found = getChildAt(i).findNavigationBarMenuView()
+        if (found != null) return found
+    }
+    return null
 }
 
 fun RecyclerView.smoothScrollToTop() {
