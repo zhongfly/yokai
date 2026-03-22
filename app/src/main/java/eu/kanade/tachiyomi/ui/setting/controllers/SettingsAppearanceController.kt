@@ -214,23 +214,46 @@ class SettingsAppearanceController : SettingsLegacyController() {
     private fun migrateLegacySideNavModePreference() {
         val prefs = preferenceManager.sharedPreferences ?: return
         val key = Keys.sideNavMode
-
         if (!prefs.contains(key)) return
-        
-        val rawValue = prefs.all[key] ?: return
-        if (rawValue is String) return
-        
-        if (rawValue is Boolean) {
-            val migratedValue = if (rawValue) {
-                SideNavMode.ALWAYS.prefValue
-            } else {
-                SideNavMode.DEFAULT.prefValue
-            }
-            prefs.edit { putString(key, migratedValue) }
-            return
+
+        val raw = prefs.all[key] ?: return
+
+        // Expected type already
+        if (raw is Int) return
+
+        fun write(value: Int) {
+            prefs.edit { putInt(key, value) }
         }
 
-        prefs.edit { remove(key) }
+        when (raw) {
+            is Boolean -> {
+                // Legacy: "use side navigation" on/off -> map into a concrete mode
+                write(if (raw) SideNavMode.ALWAYS.prefValue else SideNavMode.DEFAULT.prefValue)
+            }
+            is String -> {
+                // Possible legacy encodings
+                val normalized = raw.trim().lowercase()
+                val parsedInt = normalized.toIntOrNull()
+
+                when {
+                    parsedInt != null -> {
+                        // Clamp into known range just in case
+                        val clamped = parsedInt.coerceIn(
+                            SideNavMode.DEFAULT.prefValue,
+                            SideNavMode.ALWAYS.prefValue,
+                        )
+                        write(clamped)
+                    }
+                    normalized == "true" -> write(SideNavMode.ALWAYS.prefValue)
+                    normalized == "false" -> write(SideNavMode.DEFAULT.prefValue)
+                    else -> prefs.edit { remove(key) } // unknown -> reset
+                }
+            }
+            else -> {
+                // Unknown type -> reset to default
+                prefs.edit { remove(key) }
+            }
+        }
     }
     
     override fun onDestroyView(view: View) {
