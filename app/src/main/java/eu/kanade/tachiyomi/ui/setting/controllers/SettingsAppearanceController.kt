@@ -1,8 +1,10 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
 import android.annotation.SuppressLint
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.View
+import androidx.core.content.edit
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isVisible
@@ -47,6 +49,8 @@ class SettingsAppearanceController : SettingsLegacyController() {
 
     @SuppressLint("NotifyDataSetChanged")
     override fun setupPreferenceScreen(screen: PreferenceScreen) = screen.apply {
+        migrateLegacySideNavModePreference()
+        
         titleRes = MR.strings.appearance
 
         preferenceCategory {
@@ -206,6 +210,29 @@ class SettingsAppearanceController : SettingsLegacyController() {
         }
     }
 
+
+    private fun migrateLegacySideNavModePreference() {
+        val prefs = preferenceManager.sharedPreferences ?: return
+        val key = Keys.sideNavMode
+
+        if (!prefs.contains(key)) return
+        
+        val rawValue = prefs.all[key] ?: return
+        if (rawValue is String) return
+        
+        if (rawValue is Boolean) {
+            val migratedValue = if (rawValue) {
+                SideNavMode.ALWAYS.prefValue
+            } else {
+                SideNavMode.DEFAULT.prefValue
+            }
+            prefs.edit { putString(key, migratedValue) }
+            return
+        }
+
+        prefs.edit { remove(key) }
+    }
+    
     override fun onDestroyView(view: View) {
         super.onDestroyView(view)
         themePreference = null
